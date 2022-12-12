@@ -1,17 +1,32 @@
-### STAGE 1:BUILD ###
-# Defining a node image to be used as giving it an alias of "build"
-# Which version of Node image to use depends on project dependencies 
-# This is needed to build and compile our code 
-# while generating the docker image
-FROM node:12.14-alpine AS build
-# Create a Virtual directory inside the docker image
-WORKDIR /dist/src/app
-# Copy files to virtual directory
-# COPY package.json package-lock.json ./
-# Run command in Virtual directory
-RUN npm cache clean --force
-# Copy files from local machine to virtual directory in docker image
-COPY . .
+### STAGE 1: Build ###
+FROM node:lts-alpine AS build
+
+#### make the 'app' folder the current working directory
+WORKDIR /usr/src/app
+
+#### copy both 'package.json' and 'package-lock.json' (if available)
+COPY package*.json ./
+
+#### install angular cli
+RUN npm install -g @angular/cli
+
+#### install project dependencies
 RUN npm install
+
+#### copy things
+COPY . .
+
+#### generate build --prod
 RUN npm run build --prod
-RUN npm start --prod
+
+### STAGE 2: Run ###
+FROM nginxinc/nginx-unprivileged
+
+#### copy nginx conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+#### copy artifact build from the 'build environment'
+COPY --from=build /usr/src/app/dist/envapp/ /usr/share/nginx/html
+
+#### don't know what this is, but seems cool and techy
+CMD ["nginx", "-g", "daemon off;"]
